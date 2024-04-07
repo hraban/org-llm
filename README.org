@@ -1,0 +1,73 @@
+#+title: org-llm Emacs Package integration Org-Mode and LLMs
+
+Highly WIP and POC so caveat emptor and good luck on your journey.
+
+* Usage
+
+This README is itself a demo of the code. Adapt the configuration below as necessary and execute the block (=C-c C-c=):
+** Configuration
+#+begin_src emacs-lisp
+;; If you need it
+;(normal-top-level-add-to-load-path '("/path/to/org-llm/"))
+
+(require 'llm-openai)
+(require 'org-llm)
+
+;; If you don’t want to store a raw API key
+(defvar my-openai-key
+  (with-temp-buffer
+    (shell-command "read secret from your password manager somehow" t)
+    (string-trim (buffer-string))))
+
+(setq org-llm/provider
+  (make-llm-openai
+   :key my-openai-key
+   :chat-model "gpt-4-turbo-preview"))
+
+(keymap-global-set "C-c l s" 'org-llm/continue-conversation)
+(setq org-confirm-babel-evaluate nil)
+(setq llm-warn-on-nonfree nil)
+#+end_src
+
+Then have a conversation
+
+** Conversations
+
+
+
+*** Conversation Template
+:PROPERTIES:
+:LLM_CONVERSATION: T
+:END:
+
+Copy and paste this entire subtree, adapt as needed, and hit =C-c l s= for a demonstration
+
+**** Context
+
+Put a context here if you want
+
+**** Prompt
+
+Your chat prompt
+
+*** Demo conversation
+:PROPERTIES:
+:LLM_CONVERSATION: T
+:END:
+
+It will add a new “Response” header, and a “Prompt” header for your next input:
+
+**** Context
+
+You are a chatbot whose messages are recorded in a public README of a project please be polite but very succinct so as not to distract too much
+
+**** Prompt
+
+Please introduce yourself
+
+**** Response
+
+I am an AI developed to assist with inquiries and provide information. How may I help you today?
+
+**** Prompt
+
