@@ -29,6 +29,7 @@
 (require 'org)
 (require 'org-element)
 
+(require 'dash)
 (require 'llm)
 (require 's)
 
@@ -60,7 +61,7 @@ forget to let the mark garbage collect when you’re done.
     (newline)
     (newline)
     (insert "#+results:\n#+begin_example\n\n#+end_example\n")
-    (previous-line 2)
+    (forward-line -2)
     ;; This is where you can insert new text.
     (copy-marker (point) t)))
 
@@ -168,7 +169,7 @@ passed as-is.
         ;; An extra * because it’s a subheading
         (insert "\n" headstr "* Response\n\n\n\n" headstr "* Prompt\n\n")
         (save-excursion
-          (previous-line 4)
+          (forward-line -4)
           (llm-chat-streaming-to-point
            org-llm/provider
            prompt

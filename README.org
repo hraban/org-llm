@@ -71,3 +71,32 @@ I am an AI developed to assist with inquiries and provide information. How may I
 
 **** Prompt
 
+* Installation
+
+This package is available through Nix.
+
+The Emacs packages delivery story over flakes is kind of a mess, but this is my attempt at providing a reasonable solution. It’s based off [[https://nixos.wiki/wiki/Emacs#Installing_packages][the installation guide]]. Basically, where they do =callPackage ...=, you would instead this flake’s =emacsPackages.default= instead of that local file.
+
+Example in home-manager:
+
+#+begin_src nix
+home.programs.emacs = {
+  ...
+
+  extraPackages = epkgs: [
+    ...
+    (callPackage org-llm.emacsPackages.default {
+      inherit (pkgs) lib;
+      inherit (epkgs) trivialBuild dash llm s;
+    })
+  ];
+}
+#+end_src
+
+Of course this locks you in to specifying the dependencies explicitly, which can change later. I personally do this instead but it’s pretty ugly:
+
+#+begin_src nix
+  ((pkgs.lib.callPackageWith (pkgs // epkgs)) org-llm.emacsPackages.default {})
+#+end_src
+
+🤷 Nix.
