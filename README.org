@@ -15,9 +15,7 @@ This README is itself a demo of the code. Adapt the configuration below as neces
 
 ;; If you don’t want to store a raw API key
 (defvar my-openai-key
-  (with-temp-buffer
-    (shell-command "read secret from your password manager somehow" t)
-    (string-trim (buffer-string))))
+  (string-trim (shell-command "read secret from your password manager somehow")))
 
 (setq org-llm/provider
   (make-llm-openai
