@@ -5,7 +5,7 @@
 ;; Author: Hraban Luyat <hraban@0brg.net>
 ;; Keywords: lisp org html export
 ;; Version: 0.0.1
-;; Package-Requires: ((emacs "27.1") (llm "0.12.1") (s "20220902"))
+;; Package-Requires: ((emacs "27.1") (llm "0.12.1") (dash "20240103.1301"))
 ;; URL:
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -31,7 +31,6 @@
 
 (require 'dash)
 (require 'llm)
-(require 's)
 
 (defcustom org-llm/provider nil
   "An LLM instance from the llm package")
@@ -124,9 +123,9 @@ passed as-is.
        (lambda (h)
          (if top-h
              (when (eq top-h (org-element-property :parent h))
-               (let ((content (s-trim (buffer-substring-no-properties
-                                       (org-element-property :contents-begin h)
-                                       (org-element-property :contents-end h)))))
+               (let ((content (string-trim (buffer-substring-no-properties
+                                            (org-element-property :contents-begin h)
+                                            (org-element-property :contents-end h)))))
                  (pcase (org-element-property :raw-value h)
                    ("Prompt"
                     `(:interaction :role user :content ,content))

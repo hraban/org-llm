@@ -85,7 +85,7 @@ home.programs.emacs = {
     ...
     (callPackage org-llm.emacsPackages.default {
       inherit (pkgs) lib;
-      inherit (epkgs) trivialBuild dash llm s;
+      inherit (epkgs) trivialBuild dash llm;
     })
   ];
 }
