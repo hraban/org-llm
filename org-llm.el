@@ -156,6 +156,38 @@ passed as-is.
                             (cons context interactions)
                           interactions))))
 
+(defun org-llm//md2org (start end)
+  "Convert a region from markdown to pandoc, in-place.
+
+The region is from START to END. On any error, the old text is
+left alone, and the error message is printed below the text.
+
+Requires pandoc.
+"
+  (save-excursion
+    ;; We want to keep a fixed copy of the original args
+    (let ((start (copy-marker start))
+          (end (copy-marker end)))
+      (goto-char end)
+      (insert "\n(converting markdown to org-mode using pandoc..)\n")
+      (let ((md-mark (point-marker))
+            (org-mark (copy-marker (point-marker) t)))
+        (-doto (make-process
+                :name "pandoc"
+                :buffer nil
+                :command '("pandoc" "-f" "gfm" "-t" "org")
+                :coding 'utf-8
+                :connection-type 'pipe
+                :filter (lambda (_ output)
+                          (save-excursion
+                            (goto-char org-mark)
+                            (insert output)))
+                :sentinel (lambda (_ event)
+                            (when (equal (string-trim event) "finished")
+                              (delete-region start md-mark))))
+          (process-send-region start end)
+          (process-send-eof))))))
+
 (defun org-llm/continue-conversation ()
   (interactive)
   (save-restriction
@@ -169,11 +201,14 @@ passed as-is.
         (insert "\n" headstr "* Response\n\n\n\n" headstr "* Prompt\n\n")
         (save-excursion
           (forward-line -4)
-          (llm-chat-streaming-to-point
-           org-llm/provider
-           prompt
-           (current-buffer)
-           (copy-marker (point-marker) t)
-           (lambda (&rest _))))))))
+          (let ((start (point-marker))
+                (end (copy-marker (point-marker) t)))
+            (llm-chat-streaming-to-point
+             org-llm/provider
+             prompt
+             (current-buffer)
+             end
+             (lambda ()
+               (org-llm//md2org start end)))))))))
 
 (provide 'org-llm)
