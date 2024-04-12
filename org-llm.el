@@ -169,7 +169,7 @@ Requires pandoc.
     (let ((start (copy-marker start))
           (end (copy-marker end)))
       (goto-char end)
-      (insert "\n(converting markdown to org-mode using pandoc..)\n")
+      (insert "\nconverting markdown to org-mode using pandoc:\n")
       (let ((md-mark (point-marker))
             (org-mark (copy-marker (point-marker) t)))
         (-doto (make-process
@@ -183,8 +183,16 @@ Requires pandoc.
                             (goto-char org-mark)
                             (insert output)))
                 :sentinel (lambda (_ event)
-                            (when (equal (string-trim event) "finished")
-                              (delete-region start md-mark))))
+                            (save-excursion
+                              (goto-char start)
+                              (if (equal (string-trim event) "finished")
+                                  (progn
+                                    (org-set-property "LLM_CODE_FORMAT" "converted")
+                                    (delete-region start md-mark))
+                                (let ((msg (string-trim (buffer-substring-no-properties end org-mark))))
+                                  (delete-region end org-mark)
+                                  (org-set-property "LLM_CODE_FORMAT" "original")
+                                  (user-error "Error %s" msg))))))
           (process-send-region start end)
           (process-send-eof))))))
 
