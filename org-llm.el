@@ -35,7 +35,11 @@
 (defcustom org-llm/provider nil
   "An LLM instance from the llm package")
 
+
+;;;;; EXAMPLE BLOCKS
+
 (defun org-llm/send-block ()
+  "Send a single example block to the LLM"
   (interactive)
   (let ((block (org-element-context)))
     (unless (eq 'example-block (org-element-type block))
@@ -63,6 +67,9 @@ forget to let the mark garbage collect when you’re done.
     (forward-line -2)
     ;; This is where you can insert new text.
     (copy-marker (point) t)))
+
+
+;;;;; CONVERSATION TREES
 
 (defun org-llm//send (msg results-mark)
   (let ((prompt (llm-make-simple-chat-prompt msg)))
@@ -207,11 +214,12 @@ The region is from START to END. Requires pandoc.
   (interactive)
   (org-llm//convert-subtree "org" "gfm"))
 
+
 
 (define-prefix-command 'org-llm/map)
+(keymap-set org-llm/map "b" 'org-llm/send-block)
 (keymap-set org-llm/map "s" 'org-llm/continue-conversation)
 (keymap-set org-llm/map "m" 'org-llm/org->md)
 (keymap-set org-llm/map "o" 'org-llm/md->org)
 
-
 (provide 'org-llm)
