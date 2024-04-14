@@ -32,9 +32,15 @@ This README is itself a demo of the code. Adapt the configuration below as neces
 
 Then have a conversation
 
-** Conversations
+** Interactions
 
+*** Simple one-off blocks
 
+To quickly ask a question you can send the contents of an ‘example’ block to the LLM. Put the point on this block and call ‘org-llm/send-block’ (=C-c l b=):
+
+#+begin_example
+Testing 123 can you hear me?
+#+end_example
 
 *** Conversation Template
 :PROPERTIES:
