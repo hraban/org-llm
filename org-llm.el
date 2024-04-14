@@ -155,46 +155,6 @@ passed as-is.
                             (cons context interactions)
                           interactions))))
 
-(defun org-llm//md2org (start end)
-  "Convert a region from markdown to pandoc, in-place.
-
-The region is from START to END. On any error, the old text is
-left alone, and the error message is printed below the text.
-
-Requires pandoc.
-"
-  (save-excursion
-    ;; We want to keep a fixed copy of the original args
-    (let ((start (copy-marker start))
-          (end (copy-marker end)))
-      (goto-char end)
-      (insert "\nconverting markdown to org-mode using pandoc:\n")
-      (let ((md-mark (point-marker))
-            (org-mark (copy-marker (point-marker) t)))
-        (-doto (make-process
-                :name "pandoc"
-                :buffer nil
-                :command '("pandoc" "-f" "gfm" "-t" "org")
-                :coding 'utf-8
-                :connection-type 'pipe
-                :filter (lambda (_ output)
-                          (save-excursion
-                            (goto-char org-mark)
-                            (insert output)))
-                :sentinel (lambda (_ event)
-                            (save-excursion
-                              (goto-char start)
-                              (if (equal (string-trim event) "finished")
-                                  (progn
-                                    (org-set-property "LLM_CODE_FORMAT" "converted")
-                                    (delete-region start md-mark))
-                                (let ((msg (string-trim (buffer-substring-no-properties end org-mark))))
-                                  (delete-region end org-mark)
-                                  (org-set-property "LLM_CODE_FORMAT" "original")
-                                  (user-error "Error %s" msg))))))
-          (process-send-region start end)
-          (process-send-eof))))))
-
 (defun org-llm/continue-conversation ()
   (interactive)
   (save-restriction
@@ -215,7 +175,38 @@ Requires pandoc.
              prompt
              (current-buffer)
              end
-             (lambda ()
-               (org-llm//md2org start end)))))))))
+             (lambda ()))))))))
 
+
+
+;;;;; CONVERT MARKDOWN <-> ORG-MODE
+
+(defun org-llm//convert-subtree (from to)
+  (save-excursion
+    (org-back-to-heading)
+    (let ((h (org-element-context)))
+      (when (eq 'headline (org-element-type h))
+        (save-restriction
+          (narrow-to-region (org-element-property :contents-begin h)
+                            (org-element-property :contents-end h))
+          (call-process-region (point-min) (point-max) "pandoc" t t nil "-f" from "-t" to))))))
+
+(defun org-llm/md->org ()
+  "Convert a subtree from markdown to org-mode, in-place.
+
+The region is from START to END. Requires pandoc.
+"
+  (interactive)
+  (org-llm//convert-subtree "gfm" "org"))
+
+(defun org-llm/org->md ()
+  "Convert a subtree from org-mode to markdown, in-place.
+
+The region is from START to END. Requires pandoc.
+"
+  (interactive)
+  (org-llm//convert-subtree "org" "gfm"))
+
+
+
 (provide 'org-llm)
