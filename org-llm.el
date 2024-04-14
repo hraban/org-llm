@@ -208,5 +208,10 @@ The region is from START to END. Requires pandoc.
   (org-llm//convert-subtree "org" "gfm"))
 
 
+(define-prefix-command 'org-llm/map)
+(keymap-set org-llm/map "s" 'org-llm/continue-conversation)
+(keymap-set org-llm/map "m" 'org-llm/org->md)
+(keymap-set org-llm/map "o" 'org-llm/md->org)
+
 
 (provide 'org-llm)
