@@ -5,7 +5,7 @@
 ;; Author: Hraban Luyat <hraban@0brg.net>
 ;; Keywords: lisp org html export
 ;; Version: 0.0.1
-;; Package-Requires: ((emacs "27.1") (llm "0.12.1") (s "20220902"))
+;; Package-Requires: ((emacs "27.1") (llm "0.12.1") (dash "20240103.1301"))
 ;; URL:
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -31,7 +31,6 @@
 
 (require 'dash)
 (require 'llm)
-(require 's)
 
 (defcustom org-llm/provider nil
   "An LLM instance from the llm package")
@@ -124,9 +123,9 @@ passed as-is.
        (lambda (h)
          (if top-h
              (when (eq top-h (org-element-property :parent h))
-               (let ((content (s-trim (buffer-substring-no-properties
-                                       (org-element-property :contents-begin h)
-                                       (org-element-property :contents-end h)))))
+               (let ((content (string-trim (buffer-substring-no-properties
+                                            (org-element-property :contents-begin h)
+                                            (org-element-property :contents-end h)))))
                  (pcase (org-element-property :raw-value h)
                    ("Prompt"
                     `(:interaction :role user :content ,content))
@@ -169,11 +168,50 @@ passed as-is.
         (insert "\n" headstr "* Response\n\n\n\n" headstr "* Prompt\n\n")
         (save-excursion
           (forward-line -4)
-          (llm-chat-streaming-to-point
-           org-llm/provider
-           prompt
-           (current-buffer)
-           (copy-marker (point-marker) t)
-           (lambda (&rest _))))))))
+          (let ((start (point-marker))
+                (end (copy-marker (point-marker) t)))
+            (llm-chat-streaming-to-point
+             org-llm/provider
+             prompt
+             (current-buffer)
+             end
+             (lambda ()))))))))
 
+
+
+;;;;; CONVERT MARKDOWN <-> ORG-MODE
+
+(defun org-llm//convert-subtree (from to)
+  (save-excursion
+    (org-back-to-heading)
+    (let ((h (org-element-context)))
+      (when (eq 'headline (org-element-type h))
+        (save-restriction
+          (narrow-to-region (org-element-property :contents-begin h)
+                            (org-element-property :contents-end h))
+          (call-process-region (point-min) (point-max) "pandoc" t t nil "-f" from "-t" to))))))
+
+(defun org-llm/md->org ()
+  "Convert a subtree from markdown to org-mode, in-place.
+
+The region is from START to END. Requires pandoc.
+"
+  (interactive)
+  (org-llm//convert-subtree "gfm" "org"))
+
+(defun org-llm/org->md ()
+  "Convert a subtree from org-mode to markdown, in-place.
+
+The region is from START to END. Requires pandoc.
+"
+  (interactive)
+  (org-llm//convert-subtree "org" "gfm"))
+
+
+(define-prefix-command 'org-llm/map)
+(keymap-set org-llm/map "s" 'org-llm/continue-conversation)
+(keymap-set org-llm/map "m" 'org-llm/org->md)
+(keymap-set org-llm/map "o" 'org-llm/md->org)
+
+
 (provide 'org-llm)

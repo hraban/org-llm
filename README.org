@@ -22,7 +22,10 @@ This README is itself a demo of the code. Adapt the configuration below as neces
    :key my-openai-key
    :chat-model "gpt-4-turbo-preview"))
 
-(keymap-global-set "C-c l s" 'org-llm/continue-conversation)
+;; Bind all keys to the ‘C-c l’ prefix.
+(keymap-global-set "C-c l" org-llm/map)
+
+;; Convenience
 (setq org-confirm-babel-evaluate nil)
 (setq llm-warn-on-nonfree nil)
 #+end_src
@@ -85,7 +88,7 @@ home.programs.emacs = {
     ...
     (callPackage org-llm.emacsPackages.default {
       inherit (pkgs) lib;
-      inherit (epkgs) trivialBuild dash llm s;
+      inherit (epkgs) trivialBuild dash llm;
     })
   ];
 }
