@@ -139,22 +139,22 @@ passed as-is.
            (setf top-h h)
            nil))))))
 
+;; Hacky--this only works with openai. https://github.com/ahyatt/llm/issues/43
 (defun org-llm//summary->args (summ)
   "Prepare the result of ‘org-llm//summarize-buffer’ for ‘make-llm-chat-prompt’"
-  (cl-reduce
-   (cl-function
-    (lambda (agg form)
+  (let (context interactions)
+    (dolist (form summ)
       (pcase-exhaustive form
         (`(:interaction . ,rest)
-         (setf (plist-get agg :interactions)
-               (append (plist-get agg :interactions)
+         (setf interactions
+               (append interactions
                        (list (apply #'make-llm-chat-prompt-interaction rest)))))
-        (`(:context ,context)
-         (setf (plist-get agg :context)
-               context)))
-      agg))
-   summ
-   :initial-value '()))
+        (`(:context ,text)
+         (setf context
+               (make-llm-chat-prompt-interaction :role 'system :content text)))))
+    (list :interactions (if context
+                            (cons context interactions)
+                          interactions))))
 
 (defun org-llm/continue-conversation ()
   (interactive)
@@ -162,8 +162,7 @@ passed as-is.
     (when-let ((head (org-llm/narrow-to-conversation)))
       (let ((prompt (->> (org-llm//summarize-buffer)
                          org-llm//summary->args
-                         (apply #'make-llm-chat-prompt)
-                         ))
+                         (apply #'make-llm-chat-prompt)))
             (headstr (make-string (org-element-property :level head) ?*)))
         (goto-char (point-max))
         ;; An extra * because it’s a subheading
