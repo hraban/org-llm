@@ -100,12 +100,13 @@ value."
       (when (org-llm//previous-heading)
         (org-llm//find-header f)))))
 
-(defun org-llm//conversation-header-p (h)
-  (org-element-property :LLM_CONVERSATION h))
+(defun org-llm//find-section-ancestor (section)
+  (org-llm//find-header (lambda (h)
+                          (equal section (org-element-property :LLM_SECTION h)))))
 
 (defun org-llm/narrow-to-conversation ()
   (interactive)
-  (when-let ((tree (org-llm//find-header #'org-llm//conversation-header-p)))
+  (when-let ((tree (org-llm//find-section-ancestor "conversation")))
     (org-narrow-to-subtree tree)
     tree))
 
@@ -215,10 +216,24 @@ The region is from START to END. Requires pandoc.
   (org-llm//convert-subtree "org" "gfm"))
 
 
+;;;;; CONVERSATION HISTORY
+
+(defun org-llm/new-conversation (&optional msg)
+  (interactive)
+  (if-let (h (org-llm//find-section-ancestor "conversations"))
+      (progn
+        (org-insert-subheading '(4))
+        (org-set-property "LLM_SECTION" "conversation")
+        (insert (format-time-string "%Y-%m-%d"))
+        (org-insert-subheading '(4))
+        (insert "Prompt\n\n"))
+    (user-error "Not in an LLM conversation history")))
+
 
 (define-prefix-command 'org-llm/map)
 (keymap-set org-llm/map "b" 'org-llm/send-block)
 (keymap-set org-llm/map "s" 'org-llm/continue-conversation)
+(keymap-set org-llm/map "n" 'org-llm/new-conversation)
 (keymap-set org-llm/map "m" 'org-llm/org->md)
 (keymap-set org-llm/map "o" 'org-llm/md->org)
 
