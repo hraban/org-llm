@@ -166,24 +166,25 @@ passed as-is.
 (defun org-llm/continue-conversation ()
   (interactive)
   (save-restriction
-    (when-let ((head (org-llm/narrow-to-conversation)))
-      (let ((prompt (->> (org-llm//summarize-buffer)
-                         org-llm//summary->args
-                         (apply #'make-llm-chat-prompt)))
-            (headstr (make-string (org-element-property :level head) ?*)))
-        (goto-char (point-max))
-        ;; An extra * because it’s a subheading
-        (insert "\n" headstr "* Response\n\n\n\n" headstr "* Prompt\n\n")
-        (save-excursion
-          (forward-line -4)
-          (let ((start (point-marker))
-                (end (copy-marker (point-marker) t)))
-            (llm-chat-streaming-to-point
-             org-llm/provider
-             prompt
-             (current-buffer)
-             end
-             (lambda ()))))))))
+    (if-let (head (org-llm/narrow-to-conversation))
+        (let ((prompt (->> (org-llm//summarize-buffer)
+                           org-llm//summary->args
+                           (apply #'make-llm-chat-prompt)))
+              (headstr (make-string (org-element-property :level head) ?*)))
+          (goto-char (point-max))
+          ;; An extra * because it’s a subheading
+          (insert "\n" headstr "* Response\n\n\n\n" headstr "* Prompt\n\n")
+          (save-excursion
+            (forward-line -4)
+            (let ((start (point-marker))
+                  (end (copy-marker (point-marker) t)))
+              (llm-chat-streaming-to-point
+               org-llm/provider
+               prompt
+               (current-buffer)
+               end
+               (lambda ())))))
+      (user-error "Not currently in an conversation"))))
 
 
 
