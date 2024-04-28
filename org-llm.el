@@ -169,21 +169,22 @@ passed as-is.
     (if-let (head (org-llm/narrow-to-conversation))
         (let ((prompt (->> (org-llm//summarize-buffer)
                            org-llm//summary->args
-                           (apply #'make-llm-chat-prompt)))
-              (headstr (make-string (org-element-property :level head) ?*)))
-          (goto-char (point-max))
-          ;; An extra * because it’s a subheading
-          (insert "\n" headstr "* Response\n\n\n\n" headstr "* Prompt\n\n")
+                           (apply #'make-llm-chat-prompt))))
+          (org-insert-subheading '(4))
+          (insert "Response\n\n")
           (save-excursion
-            (forward-line -4)
-            (let ((start (point-marker))
+            (insert "\n")
+            (org-insert-heading '(4))
+            (insert "Prompt\n"))
+          (let ((start (point-marker))
                   (end (copy-marker (point-marker) t)))
               (llm-chat-streaming-to-point
                org-llm/provider
                prompt
                (current-buffer)
                end
-               (lambda ())))))
+               (lambda ())))
+          (goto-char (point-max)))
       (user-error "Not currently in an conversation"))))
 
 
