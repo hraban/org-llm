@@ -38,6 +38,7 @@
 
 ;;;;; EXAMPLE BLOCKS
 
+;;;###autoload
 (defun org-llm/send-block ()
   "Send a single example block to the LLM"
   (interactive)
@@ -168,6 +169,7 @@ passed as-is.
                             (cons context interactions)
                           interactions))))
 
+;;;###autoload
 (defun org-llm/continue-conversation ()
   (interactive)
   (save-restriction
@@ -206,6 +208,7 @@ passed as-is.
                             (org-element-property :contents-end h))
           (call-process-region (point-min) (point-max) "pandoc" t t nil "-f" from "-t" to))))))
 
+;;;###autoload
 (defun org-llm/md->org ()
   "Convert a subtree from markdown to org-mode, in-place.
 
@@ -214,6 +217,7 @@ The region is from START to END. Requires pandoc.
   (interactive)
   (org-llm//convert-subtree "gfm" "org"))
 
+;;;###autoload
 (defun org-llm/org->md ()
   "Convert a subtree from org-mode to markdown, in-place.
 
@@ -225,6 +229,7 @@ The region is from START to END. Requires pandoc.
 
 ;;;;; CONVERSATION HISTORY
 
+;;;###autoload
 (defun org-llm/new-conversation (&optional msg)
   (interactive)
   (if-let (h (org-llm//find-section-ancestor "conversations"))
@@ -241,6 +246,7 @@ The region is from START to END. Requires pandoc.
 (defcustom title-prompt "Generate a title for this conversation."
   "Prompt sent to the LLM to generate a title for this conversation")
 
+;;;###autoload
 (defun org-llm/summarize-conversation ()
   "Append a prompt to the conversation to generate a title. Send it to the llm. Grab the returned title and replace the conversation title with it"
   (interactive)
