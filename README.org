@@ -33,6 +33,9 @@ This README is itself a demo of the code. Adapt the configuration below as neces
 Then have a conversation
 
 ** Interactions
+:PROPERTIES:
+:LLM_SECTION: conversations
+:END:
 
 *** Simple one-off blocks
 
@@ -44,7 +47,7 @@ Testing 123 can you hear me?
 
 *** Conversation Template
 :PROPERTIES:
-:LLM_CONVERSATION: T
+:LLM_SECTION: conversation
 :END:
 
 Copy and paste this entire subtree, adapt as needed, and hit =C-c l s= for a demonstration
@@ -59,7 +62,7 @@ Your chat prompt
 
 *** Demo conversation
 :PROPERTIES:
-:LLM_CONVERSATION: T
+:LLM_SECTION: conversation
 :END:
 
 It will add a new “Response” header, and a “Prompt” header for your next input:
