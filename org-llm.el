@@ -104,6 +104,11 @@ value."
   (org-llm//find-header (lambda (h)
                           (equal section (org-element-property :LLM_SECTION h)))))
 
+(defun org-llm//find-conversation-header ()
+  (interactive)
+  (org-llm//find-header (lambda (h) (eq 3 org-current-level))))
+
+
 (defun org-llm/narrow-to-conversation ()
   (interactive)
   (when-let ((tree (org-llm//find-section-ancestor "conversation")))
@@ -230,6 +235,40 @@ The region is from START to END. Requires pandoc.
         (org-insert-subheading '(4))
         (insert "Prompt\n\n"))
     (user-error "Not in an LLM conversation history")))
+
+;;;;; SUMMARIZE
+
+(defcustom title-prompt "Generate a title for this conversation."
+  "Prompt sent to the LLM to generate a title for this conversation")
+
+(defun org-llm/summarize-conversation ()
+  "Append a prompt to the conversation to generate a title. Send it to the llm. Grab the returned title and replace the conversation title with it"
+  (interactive)
+  (save-restriction
+    (if-let (head (org-llm/narrow-to-conversation))
+        (let ((prompt (->> `(:interaction :role user :content title-prompt)
+			   list
+			   (append (org-llm//summarize-buffer))
+			   org-llm//summary->args
+                           (apply #'make-llm-chat-prompt))))
+	  (goto-char (+ 1 (org-element-property :begin head) (org-element-property :level head)))
+	  (kill-line)
+          (let ((start (point-marker))
+                (end (copy-marker (point-marker) t)))
+            (llm-chat-streaming-to-point
+             org-llm/provider
+             prompt
+             (current-buffer)
+             end
+             (lambda ()
+	       ;; Strip quotes which most of the responses seem to contain
+	       (goto-char end)
+	       (backward-char)
+	       (when (looking-at "\"") (delete-char 1))
+	       (goto-char start)
+	       (when (looking-at "\"") (delete-char 1)))))
+          (goto-char (point-max)))
+      (user-error "Not currently in an conversation"))))
 
 
 (define-prefix-command 'org-llm/map)
