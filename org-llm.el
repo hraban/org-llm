@@ -263,6 +263,17 @@ The region is from START to END. Requires pandoc.
 (defcustom title-prompt "A best-effort title for this conversation, without talkback or questions, making stuff up if you have to, no matter what, is:"
   "Prompt sent to the LLM to generate a title for this conversation")
 
+(defun org-llm//insert-or-skip-date ()
+  "If point is at a date, skip past it, otherwise insert one.
+
+Ensures the point is at exactly one space past a date notation.
+"
+  (save-match-data
+    (if (looking-at (rx (= 4 digit) "-" (= 2 digit) "-" (= 2 digit)))
+        (goto-char (match-end 0))
+      (insert (format-time-string "%Y-%m-%d ")))
+    (insert " ")))
+
 ;;;###autoload
 (defun org-llm/summarize-conversation ()
   "Append a prompt to the conversation to generate a title. Send it to the llm. Grab the returned title and replace the conversation title with it"
@@ -275,6 +286,7 @@ The region is from START to END. Requires pandoc.
                               `((:interaction :role user :content ,title-prompt))))
                (prompt (apply #'make-llm-chat-prompt (org-llm//summary->args parts))))
 	  (goto-char (+ 1 (org-element-property :begin head) (org-element-property :level head)))
+          (org-llm//insert-or-skip-date)
 	  (delete-region (point) (line-end-position))
           (let ((start (point-marker))
                 (end (copy-marker (point-marker) t)))
