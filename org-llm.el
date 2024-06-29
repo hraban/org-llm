@@ -283,5 +283,6 @@ The region is from START to END. Requires pandoc.
 (keymap-set org-llm/map "n" 'org-llm/new-conversation)
 (keymap-set org-llm/map "m" 'org-llm/org->md)
 (keymap-set org-llm/map "o" 'org-llm/md->org)
+(keymap-set org-llm/map "t" 'org-llm/summarize-conversation)
 
 (provide 'org-llm)
