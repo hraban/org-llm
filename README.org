@@ -6,7 +6,7 @@ Highly WIP and POC so caveat emptor and good luck on your journey.
 
 This README is itself a demo of the code. Adapt the configuration below as necessary and execute the block (=C-c C-c=):
 ** Configuration
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :results none
 ;; If you need it
 ;(normal-top-level-add-to-load-path '("/path/to/org-llm/"))
 
