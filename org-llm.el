@@ -28,6 +28,7 @@
 
 (require 'org)
 (require 'org-element)
+(require 'rx)
 
 (require 'dash)
 (require 'llm)
@@ -38,6 +39,11 @@
 
 ;;;;; EXAMPLE BLOCKS
 
+(defmacro org-llm//with-org-props (props el &rest body)
+  (declare (indent defun))
+  `(cl-destructuring-bind (&key ,@props &allow-other-keys) (cadr ,el)
+     ,@body))
+
 ;;;###autoload
 (defun org-llm/send-block ()
   "Send a single example block to the LLM"
@@ -45,9 +51,9 @@
   (let ((block (org-element-context)))
     (unless (eq 'example-block (org-element-type block))
       (user-error "Can only send example blocks to gpt4"))
-    (hly/with-org-props (value) block
-                        (let ((results (org-llm//insert-results-block block)))
-                          (org-llm//send value results)))))
+    (org-llm//with-org-props (value) block
+      (let ((results (org-llm//insert-results-block block)))
+        (org-llm//send value results)))))
 
 (defun org-llm//insert-results-block (prompt-block)
   "Create a new results block after this block and return a mark
@@ -116,6 +122,22 @@ value."
     (org-narrow-to-subtree tree)
     tree))
 
+(defun org-llm//map-direct-subheadings (callback)
+  "Map over every direct child of the top heading in this buffer.
+
+Assumes the entire buffer is narrowed to a single org subtree.
+"
+  (let (top-h)
+    (cl-remove
+     #'null
+     (org-element-map (org-element-parse-buffer) 'headline
+       (lambda (h)
+         (if top-h
+             (when (eq top-h (org-element-property :parent h))
+               (funcall callback h))
+           (setf top-h h)
+           nil))))))
+
 (defun org-llm//summarize-buffer ()
   "Assume the buffer has been narrowed to a conversation
 
@@ -130,27 +152,22 @@ is either an :interaction or a :context. The :interactions should
 have their cdrs combined into a list, the :context should be
 passed as-is.
 "
-  (let (top-h)
-    (cl-remove
-     #'null
-     (org-element-map (org-element-parse-buffer) 'headline
-       (lambda (h)
-         (if top-h
-             (when (eq top-h (org-element-property :parent h))
-               (let ((content (string-trim (buffer-substring-no-properties
-                                            (org-element-property :contents-begin h)
-                                            (org-element-property :contents-end h)))))
-                 (pcase (org-element-property :raw-value h)
-                   ("Prompt"
-                    `(:interaction :role user :content ,content))
-                   ("Response"
-                    `(:interaction :role assistant :content ,content))
-                   ("Context"
-                    `(:context ,content))
-                   (`,x
-                    (user-error "Unknown header: %s (accepted: Prompt, Response, Context)" x)))))
-           (setf top-h h)
-           nil))))))
+  (org-llm//map-direct-subheadings
+   (lambda (h)
+     (org-llm//with-org-props (contents-begin contents-end) h
+       (unless (member nil (list contents-begin contents-end))
+         (let ((content (string-trim (buffer-substring-no-properties
+                                      (org-element-property :contents-begin h)
+                                      (org-element-property :contents-end h)))))
+           (pcase (org-element-property :raw-value h)
+             ("Prompt"
+              `(:interaction :role user :content ,content))
+             ("Response"
+              `(:interaction :role assistant :content ,content))
+             ("Context"
+              `(:context ,content))
+             (`,x
+              (user-error "Unknown header: %s (accepted: Prompt, Response, Context)" x))))         )))))
 
 ;; Hacky--this only works with openai. https://github.com/ahyatt/llm/issues/43
 (defun org-llm//summary->args (summ)
@@ -243,7 +260,7 @@ The region is from START to END. Requires pandoc.
 
 ;;;;; SUMMARIZE
 
-(defcustom title-prompt "Generate a title for this conversation."
+(defcustom title-prompt "A best-effort title for this conversation, without talkback or questions, making stuff up if you have to, no matter what, is:"
   "Prompt sent to the LLM to generate a title for this conversation")
 
 ;;;###autoload
@@ -252,13 +269,13 @@ The region is from START to END. Requires pandoc.
   (interactive)
   (save-restriction
     (if-let (head (org-llm/narrow-to-conversation))
-        (let ((prompt (->> `(:interaction :role user :content title-prompt)
-			   list
-			   (append (org-llm//summarize-buffer))
-			   org-llm//summary->args
-                           (apply #'make-llm-chat-prompt))))
+        ;; This doesn’t handle contexts properly but whatever.
+        (let* ((parts (append '((:interaction :role user :content "Given this conversation:"))
+                              (org-llm//summarize-buffer)
+                              `((:interaction :role user :content ,title-prompt))))
+               (prompt (apply #'make-llm-chat-prompt (org-llm//summary->args parts))))
 	  (goto-char (+ 1 (org-element-property :begin head) (org-element-property :level head)))
-	  (kill-line)
+	  (delete-region (point) (line-end-position))
           (let ((start (point-marker))
                 (end (copy-marker (point-marker) t)))
             (llm-chat-streaming-to-point
