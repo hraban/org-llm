@@ -87,25 +87,15 @@ forget to let the mark garbage collect when you’re done.
      results-mark
      (lambda (&rest _)))))
 
-(defun org-llm//previous-heading ()
-  "Like ‘org-previous-visible-heading’ but indiciates whether the point changed.
-
-Returns T if you traveled, NIL if not."
-  (let ((old (point)))
-    (org-previous-visible-heading 1)
-    (not (eq (point) old))))
+(defun org-llm//headerp (o)
+  (eq 'headline (org-element-type o)))
 
 (defun org-llm//find-header (f)
-  "Find a header in my ancestry which satisfies this predicate.
-
-Leave the point at the header and return its org-element-context
-value."
-  (let ((c (org-element-context)))
-    (if (and (eq 'headline (org-element-type c))
-             (funcall f c))
-        c
-      (when (org-llm//previous-heading)
-        (org-llm//find-header f)))))
+  "Find a header in my ancestry which satisfies this predicate."
+  (--> (org-element-at-point)
+       (org-element-lineage it nil 'with-self)
+       (-filter #'org-llm//headerp it)
+       (cl-find-if f it)))
 
 (defun org-llm//find-section-ancestor (section)
   (org-llm//find-header (lambda (h)
@@ -152,22 +142,27 @@ is either an :interaction or a :context. The :interactions should
 have their cdrs combined into a list, the :context should be
 passed as-is.
 "
-  (org-llm//map-direct-subheadings
-   (lambda (h)
-     (org-llm//with-org-props (contents-begin contents-end) h
-       (unless (member nil (list contents-begin contents-end))
-         (let ((content (string-trim (buffer-substring-no-properties
-                                      (org-element-property :contents-begin h)
-                                      (org-element-property :contents-end h)))))
-           (pcase (org-element-property :raw-value h)
-             ("Prompt"
-              `(:interaction :role user :content ,content))
-             ("Response"
-              `(:interaction :role assistant :content ,content))
-             ("Context"
-              `(:context ,content))
-             (`,x
-              (user-error "Unknown header: %s (accepted: Prompt, Response, Context)" x))))         )))))
+  (cl-remove
+   nil
+   (org-llm//map-direct-subheadings
+    (lambda (h)
+      (org-llm//with-org-props (contents-begin contents-end) h
+        (unless (member nil (list contents-begin contents-end))
+          (let ((content (string-trim (buffer-substring-no-properties
+                                       (org-element-property :contents-begin h)
+                                       (org-element-property :contents-end h)))))
+            (pcase (org-element-property :raw-value h)
+              ("Prompt"
+               `(:interaction :role user :content ,content))
+              ("Response"
+               `(:interaction :role assistant :content ,content))
+              ("Context"
+               `(:context ,content))
+              ((rx bos "Ignore ")
+               ;; Ignore me
+               )
+              (`,x
+               (user-error "Unknown header: %s (accepted: Prompt, Response, Context)" x))))))))))
 
 ;; Hacky--this only works with openai. https://github.com/ahyatt/llm/issues/43
 (defun org-llm//summary->args (summ)
@@ -194,6 +189,7 @@ passed as-is.
         (let ((prompt (->> (org-llm//summarize-buffer)
                            org-llm//summary->args
                            (apply #'make-llm-chat-prompt))))
+          (goto-char (org-element-property :begin head))
           (org-insert-subheading '(4))
           (insert "Response\n\n")
           (save-excursion
@@ -251,6 +247,7 @@ The region is from START to END. Requires pandoc.
   (interactive)
   (if-let (h (org-llm//find-section-ancestor "conversations"))
       (progn
+        (goto-char (org-element-property :begin h))
         (org-insert-subheading '(4))
         (org-set-property "LLM_SECTION" "conversation")
         (insert (format-time-string "%Y-%m-%d"))
