@@ -41,8 +41,10 @@
 
 (defmacro org-llm//with-org-props (props el &rest body)
   (declare (indent defun))
-  `(cl-destructuring-bind (&key ,@props &allow-other-keys) (cadr ,el)
-     ,@body))
+  (cl-with-gensyms (elval)
+    `(let* ((,elval ,el)
+            ,@(--map `(,it (org-element-property ,(intern (format ":%s" it)) ,elval)) props))
+       ,@body)))
 
 ;;;###autoload
 (defun org-llm/send-block ()
