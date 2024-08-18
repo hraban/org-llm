@@ -92,12 +92,15 @@ forget to let the mark garbage collect when you’re done.
 (defun org-llm//headerp (o)
   (eq 'headline (org-element-type o)))
 
-(defun org-llm//find-header (f)
-  "Find a header in my ancestry which satisfies this predicate."
+(defun org-llm//ancestry ()
+  "Find the list of headers from point, up to root"
   (--> (org-element-at-point)
        (org-element-lineage it nil 'with-self)
-       (-filter #'org-llm//headerp it)
-       (cl-find-if f it)))
+       (-filter #'org-llm//headerp it)))
+
+(defun org-llm//find-header (f)
+  "Find a header in my ancestry which satisfies this predicate."
+  (cl-find-if f (org-llm//ancestry)))
 
 (defun org-llm//find-section-ancestor (section)
   (org-llm//find-header (lambda (h)
@@ -211,15 +214,47 @@ passed as-is.
 
 ;;;;; CONVERT MARKDOWN <-> ORG-MODE
 
-(defun org-llm//convert-subtree (from to)
+(defun org-llm//conversation-heading-p (o)
+  (and (eq 'headline (org-element-type o)) (equal "conversation" (org-entry-get o "LLM_SECTION"))))
+
+(defun org-llm//find-conversation-subheading ()
+  "Find the heading for this entry in the conversation..
+
+Meaning the \"Repsonse\" or \"Prompt\" subheading for this
+conversation."
+  ;; Can’t search on those actual titles because they might be different and
+  ;; because there might be a nested subheading with the same title in our
+  ;; ancestry.
+  (when-let* ((ancestry (org-llm//ancestry))
+              (conv (cl-position-if #'org-llm//conversation-heading-p ancestry)))
+    (elt ancestry (1- conv))))
+
+(defun org-llm//rebalance-headings (top-level)
+  "Set the highest heading to TOP-LEVEL and correct all below appropriately."
   (save-excursion
-    (org-back-to-heading)
-    (let ((h (org-element-context)))
-      (when (eq 'headline (org-element-type h))
+    (let (old-top)
+      (->>
+       (org-element-map (org-element-parse-buffer) 'headline
+         (lambda (h)
+           (org-llm//with-org-props (true-level begin) h
+             (setf old-top (or old-top true-level))
+             (list begin true-level))))
+       reverse
+       (mapc (cl-function
+              (lambda ((begin old-level))
+                (goto-char begin)
+                (delete-char old-top)
+                (insert (make-string top-level ?*)))))))))
+
+(defun org-llm//convert-conversation (from to)
+  (if-let ((head (org-llm//find-conversation-subheading)))
+      (org-llm//with-org-props (contents-begin contents-end true-level) head
         (save-restriction
-          (narrow-to-region (org-element-property :contents-begin h)
-                            (org-element-property :contents-end h))
-          (call-process-region (point-min) (point-max) "pandoc" t t nil "-f" from "-t" to))))))
+          (save-excursion
+            (narrow-to-region contents-begin contents-end)
+            (call-process-region contents-begin contents-end "pandoc" t t nil "-f" from "-t" to)
+            (org-llm//rebalance-headings (1+ true-level)))))
+    (user-error "Not currently in an conversation")))
 
 ;;;###autoload
 (defun org-llm/md->org ()
@@ -228,7 +263,7 @@ passed as-is.
 The region is from START to END. Requires pandoc.
 "
   (interactive)
-  (org-llm//convert-subtree "gfm" "org"))
+  (org-llm//convert-conversation "gfm" "org"))
 
 ;;;###autoload
 (defun org-llm/org->md ()
@@ -237,7 +272,7 @@ The region is from START to END. Requires pandoc.
 The region is from START to END. Requires pandoc.
 "
   (interactive)
-  (org-llm//convert-subtree "org" "gfm"))
+  (org-llm//convert-conversation "org" "gfm"))
 
 
 ;;;;; CONVERSATION HISTORY
