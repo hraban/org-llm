@@ -150,9 +150,7 @@ passed as-is.
     (lambda (h)
       (org-llm//with-org-props (contents-begin contents-end) h
         (unless (member nil (list contents-begin contents-end))
-          (let ((content (string-trim (buffer-substring-no-properties
-                                       (org-element-property :contents-begin h)
-                                       (org-element-property :contents-end h)))))
+          (let ((content (string-trim (buffer-substring-no-properties contents-begin contents-end))))
             (pcase (org-element-property :raw-value h)
               ("Prompt"
                `(:interaction :role user :content ,content))
