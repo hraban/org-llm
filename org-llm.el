@@ -106,11 +106,6 @@ forget to let the mark garbage collect when you’re done.
   (org-llm//find-header (lambda (h)
                           (equal section (org-element-property :LLM_SECTION h)))))
 
-(defun org-llm//find-conversation-header ()
-  (interactive)
-  (org-llm//find-header (lambda (h) (eq 3 org-current-level))))
-
-
 (defun org-llm/narrow-to-conversation ()
   (interactive)
   (when-let ((tree (org-llm//find-section-ancestor "conversation")))
