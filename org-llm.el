@@ -146,8 +146,9 @@ passed as-is.
    nil
    (org-llm//map-direct-subheadings
     (lambda (h)
-      (org-llm//with-org-props (contents-begin contents-end) h
-        (unless (member nil (list contents-begin contents-end))
+      (org-llm//with-org-props (contents-begin contents-end tags) h
+        (unless (or (member nil (list contents-begin contents-end))
+                    (cl-intersection tags '("ignore" "archive") :test #'cl-equalp))
           (let ((content (string-trim (buffer-substring-no-properties contents-begin contents-end))))
             (pcase (org-element-property :raw-value h)
               ("Prompt"
