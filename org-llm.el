@@ -193,8 +193,17 @@ passed as-is.
           (insert "Response\n\n")
           (save-excursion
             (insert "\n")
-            (org-insert-heading '(4))
-            (insert "Prompt\n"))
+            ;; I used to have ‘org-insert-heading’ here but it has a lot of
+            ;; heuristics and logic and some of that acts up at weird times.
+            ;; E.g. I’m running into weird behavior where sometimes it will
+            ;; remove the two preceding newlines (obviously undesirable here),
+            ;; but other times it won’t.  Anyway I don’t need that stuff; I know
+            ;; where I am, I just need a new header at exactly this level, let’s
+            ;; keep it simple.  This might break org files for people who indent
+            ;; their headings--is that a thing?
+            (insert "\n"
+                    (make-string (1+ (org-element-property :level head)) ?*)
+                    " Prompt\n"))
           (let ((start (point-marker))
                   (end (copy-marker (point-marker) t)))
               (llm-chat-streaming-to-point
