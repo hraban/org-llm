@@ -78,6 +78,65 @@ forget to let the mark garbage collect when you’re done.
     (copy-marker (point) t)))
 
 
+;;;;; HEADER SUBSTITUTION
+
+(defun org-llm//subst-link-p (l)
+  "Is this link node a substitution link?
+
+Assumes we are in the same buffer as the link"
+  (save-excursion
+    (goto-char (org-element-property :contents-begin l))
+    (looking-at (rx "llm-subst:"))))
+
+(defun org-llm//zip-headings (els)
+  "I should not have written this"
+  (cl-mapcan (lambda (a b)
+               (cl-list* (buffer-substring-no-properties (car (last a)) (cl-first b))
+                         (-some-> b cl-second list)))
+             els
+             (cl-rest els)))
+
+(defun org-llm//get-subst-links (begin end)
+  "Get all substitution links in this region of the buffer as a list"
+  (save-excursion
+    (save-restriction
+      (narrow-to-region begin end)
+      (org-element-map (org-element-parse-buffer) 'link
+        (lambda (l)
+          (when (org-llm//subst-link-p l) l))))))
+
+(defun org-llm//header-contents (h)
+  "Like ‘buffer-substring-no-properties’ but includes substitution.
+
+You can substitute text for another heading by using a
+substitution link:
+
+   [[llm-subst:Any title you want doesn’t matter][the-link-here]]
+
+This function will detect any such a link, assume it points to an
+org-mode header, follow it, and substitute the entire link for
+the contents of that header.  Obviously: beware of subheadings.
+"
+  (org-llm//with-org-props (contents-begin contents-end) h
+    (let* ((expanded (mapcar
+                      (lambda (l)
+                        (org-llm//with-org-props (begin end) l
+                          (or (save-window-excursion
+                                (save-excursion
+                                  (org-link-open l)
+                                  (let ((target (org-element-context)))
+                                    (when (eq 'headline (org-element-type target))
+                                      (list begin
+                                            (org-llm//header-contents target)
+                                            end)))))
+                              (error "Link %s doesn’t point to a heading"
+                                     (buffer-substring begin end)))))
+                      (org-llm//get-subst-links contents-begin contents-end))))
+      (apply #'concat
+             (org-llm//zip-headings `((,contents-begin) ,@expanded (,contents-end)))))))
+
+
+
 ;;;;; CONVERSATION TREES
 
 (defun org-llm//send (msg results-mark)
@@ -149,7 +208,7 @@ passed as-is.
       (org-llm//with-org-props (contents-begin contents-end tags) h
         (unless (or (member nil (list contents-begin contents-end))
                     (cl-intersection tags '("ignore" "archive") :test #'cl-equalp))
-          (let ((content (string-trim (buffer-substring-no-properties contents-begin contents-end))))
+          (let ((content (org-llm//header-contents h)))
             (pcase (org-element-property :raw-value h)
               ("Prompt"
                `(:interaction :role user :content ,content))
