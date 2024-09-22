@@ -96,6 +96,12 @@ Assumes we are in the same buffer as the link"
              els
              (cl-rest els)))
 
+(defun org-llm//skip-drawers ()
+  (while (looking-at org-element-drawer-re)
+    (while (not (looking-at org-property-end-re))
+      (forward-line))
+    (forward-line)))
+
 (defun org-llm//get-subst-links (begin end)
   "Get all substitution links in this region of the buffer as a list"
   (save-excursion
@@ -118,7 +124,11 @@ org-mode header, follow it, and substitute the entire link for
 the contents of that header.  Obviously: beware of subheadings.
 "
   (org-llm//with-org-props (contents-begin contents-end) h
-    (let* ((expanded (mapcar
+    (let ((post-drawers (save-excursion
+                          (goto-char contents-begin)
+                          (org-llm//skip-drawers)
+                          (point)))
+          (expanded (mapcar
                       (lambda (l)
                         (org-llm//with-org-props (begin end) l
                           (or (save-window-excursion
@@ -132,8 +142,10 @@ the contents of that header.  Obviously: beware of subheadings.
                               (error "Link %s doesn’t point to a heading"
                                      (buffer-substring begin end)))))
                       (org-llm//get-subst-links contents-begin contents-end))))
-      (apply #'concat
-             (org-llm//zip-headings `((,contents-begin) ,@expanded (,contents-end)))))))
+      (->> `((,post-drawers) ,@expanded (,contents-end))
+           org-llm//zip-headings
+           (apply #'concat)
+           string-trim))))
 
 
 
